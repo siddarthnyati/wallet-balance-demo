@@ -289,7 +289,8 @@
     bitcoin: () => 'BTC · address lookup on mempool.space',
   };
   async function scanChain(chain, src) {
-    const st = { chain, src, epIdx: 0, calls: {}, ok: false, block: null, error: null, items: [] };
+    const st = { chain, src, epIdx: 0, calls: {}, ok: false, block: null, error: null, items: [], ms: null };
+    const chainT0 = performance.now();
     const li = step(`${chain.name}: reading ${shortAddr(src.address)}`, WHAT[kindOf(chain)](chain));
     try {
       const k = kindOf(chain);
@@ -299,6 +300,7 @@
     } catch (e) {
       failAll(st, `couldn’t reach any of ${(chain.rpcs || chain.apis).length} public endpoints`);
     }
+    st.ms = Math.round(performance.now() - chainT0);
     const parts = Object.entries(st.calls).map(([m, n]) => `${m}×${n}`).join(', ');
     log(kindOf(chain) === 'bitcoin' ? 'http' : 'rpc', `${src.label} · ${chain.name}${st.ok ? ` via ${endpointHost(st)}` : ''}: ${parts || '-'}${st.error ? ` (${st.error})` : ''}`);
     const got = st.items.filter((x) => x.raw != null && x.raw > 0n).map((x) => `${fmtNum(amountOf(x))} ${x.asset.symbol}`);
@@ -354,13 +356,17 @@
     const loaderIdle = $('loading').classList.contains('hidden') || $('loadSpin').classList.contains('done');
     if (loaderIdle) loadStart(title); else $('loadTitle').textContent = title;
     const t0 = performance.now();
+    const runStates = [];
+    let readEnd = t0, priceMs = null;
     const ids = new Set(); CFG.chains.forEach((c) => { ids.add(c.native.price); c.tokens.forEach((t) => ids.add(t.price)); });
     const pli = step(`Prices: asking CoinGecko for ${ids.size} USD prices`, 'only coin names are sent, never your address');
     await Promise.all([
-      getPrices().then((p) => { lastPrices = p; pricesAt = new Date(); stepEnd(pli, !!p, p ? 'Prices loaded from CoinGecko' : 'Prices failed: showing amounts only'); }),
+      getPrices().then((p) => { priceMs = Math.round(performance.now() - t0); lastPrices = p; pricesAt = new Date(); stepEnd(pli, !!p, p ? 'Prices loaded from CoinGecko' : 'Prices failed: showing amounts only'); }),
       ...srcs.map(async (src) => {
         const t1 = performance.now();
         const chainStates = await Promise.all(CFG.chains.filter((c) => kindOf(c) === src.kind).map((c) => scanChain(c, src)));
+        readEnd = Math.max(readEnd, performance.now());
+        runStates.push(...chainStates);
         if (sources.includes(src)) scans.set(src.key, { chainStates, at: new Date(), ms: Math.round(performance.now() - t1) });
       }),
     ]);
@@ -372,8 +378,40 @@
       loadFinish(`Loaded in ${((performance.now() - t0) / 1000).toFixed(1)} s · ${ok} of ${states.length} chain reads worked · show steps`);
       $('results').classList.remove('hidden');
     }
+    renderHow({ states: runStates, readMs: Math.round(readEnd - t0), priceMs, srcs });
     renderSources();
     render();
+  }
+
+  // Fills the "How it works" diagram and timing bars from the scan that just ran.
+  const fmtMs = (ms) => (ms < 1000 ? `${ms} ms` : `${(ms / 1000).toFixed(1)} s`);
+  function renderHow({ states, readMs, priceMs, srcs }) {
+    if (!states.length) return;
+    const put = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+    const slowest = (list) => Math.max(...list.map((x) => x.ms));
+    const reads = states.reduce((n, x) => n + x.items.length, 0);
+    const failed = states.reduce((n, x) => n + x.items.filter((i) => i.error).length, 0);
+    const chainIds = [...new Set(states.map((x) => x.chain.id))];
+    const fromWallet = srcs.filter((x) => !x.key.startsWith('addr:')).length;
+    if (fromWallet) put('hwAddr', `Returned ${fromWallet} public address${fromWallet === 1 ? '' : 'es'}`);
+    put('hwRoute', `Fixed list: ${chainIds.length} chain${chainIds.length === 1 ? '' : 's'}, ${reads} balance read${reads === 1 ? '' : 's'}`);
+    put('hwRead', `4 · Read in parallel from public nodes: ${fmtMs(readMs)} in total. No wallet involved`);
+    const evm = states.filter((x) => kindOf(x.chain) === 'evm');
+    const sol = states.filter((x) => kindOf(x.chain) === 'solana');
+    const btc = states.filter((x) => kindOf(x.chain) === 'bitcoin');
+    if (evm.length) put('hwEvm', `${new Set(evm.map((x) => x.chain.id)).size} chains · ${fmtMs(slowest(evm))}`);
+    if (sol.length) put('hwSol', `SOL, USDC, USDT · ${fmtMs(slowest(sol))}`);
+    if (btc.length) put('hwBtc', `mempool.space · ${fmtMs(slowest(btc))}`);
+    if (priceMs != null) put('hwView', `Prices added in ${fmtMs(priceMs)}`);
+    const rows = chainIds.map((id) => {
+      const list = states.filter((x) => x.chain.id === id);
+      return { name: list[0].chain.name, ms: slowest(list), ok: list.some((x) => x.ok), reads: list.reduce((n, x) => n + x.items.length, 0) };
+    }).sort((a, b) => a.ms - b.ms);
+    const max = Math.max(...rows.map((r) => r.ms), 1);
+    const total = states.reduce((n, x) => n + x.ms, 0);
+    $('hwSummary').innerHTML = `<strong>${fmtMs(readMs)}</strong> for ${reads} balance read${reads === 1 ? '' : 's'} across ${chainIds.length} chain${chainIds.length === 1 ? '' : 's'}, run at the same time. One after another, the same chains would take about ${fmtMs(total)}.${failed ? ` ${failed} read${failed === 1 ? '' : 's'} failed and show as “couldn’t read”.` : ''}`;
+    $('hwBars').innerHTML = rows.map((r) => `<div class="hw-row"><span class="hw-name">${esc(r.name)}</span><span class="hw-track"><span class="hw-bar${r.ok ? '' : ' bad'}" style="width:${Math.max(2, Math.round((r.ms / max) * 100))}%"></span></span><span class="hw-ms">${r.ok ? fmtMs(r.ms) : 'couldn’t read'}</span></div>`).join('');
+    put('hwWhen', 'Measured just now, in this browser');
   }
   const rescanAll = () => scanSources(sources, 'Rescanning…');
 
