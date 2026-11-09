@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio Move Balance Checker</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --ink: #14171c; --muted: #5d6672; --line: #e3e6ea;
+    --accent: #2f5bea; --accent-ink: #ffffff;
+    --ok-bg: #e5f5ec; --ok-ink: #11683a; --warn-bg: #fdf1dc; --warn-ink: #8a5a00;
+    --no-bg: #eef0f3; --no-ink: #4b5360; --err-bg: #fde8e8; --err-ink: #a12222;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --panel: #171a20; --ink: #eceef2; --muted: #9aa3af; --line: #2a2f38;
+      --accent: #6d8dff; --accent-ink: #0f1115;
+      --ok-bg: #12301f; --ok-ink: #7fdca4; --warn-bg: #352812; --warn-ink: #f0c26b;
+      --no-bg: #23272f; --no-ink: #b5bcc7; --err-bg: #3a1919; --err-ink: #f19a9a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 28px 16px 64px; }
+  .eyebrow { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+  h1 { font-size: 26px; margin: 0 0 8px; letter-spacing: -.01em; }
+  .lede { margin: 0 0 20px; color: var(--muted); max-width: 760px; }
+  .lede strong { color: var(--ink); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+  .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+    padding: 8px 14px; cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; padding: 10px 18px; }
+  button:disabled { opacity: .55; cursor: default; }
+  .addr { font-family: var(--mono); font-size: 14px; padding: 4px 8px; background: var(--no-bg); border-radius: 6px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .manual { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .wbtn { display: inline-flex; align-items: center; gap: 8px; text-align: left; }
+  .wbtn small { display: block; font-size: 11px; font-weight: 500; opacity: .8; }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--no-bg); color: var(--no-ink); }
+  .majors { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 12px; }
+  .major { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--accent); border-radius: 0 0 12px 12px; padding: 12px 16px; }
+  .major .k { font-size: 13px; font-weight: 700; letter-spacing: .04em; }
+  .major .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .major .u { font-size: 13px; color: var(--muted); font-weight: 500; }
+  .major .s { font-size: 13px; color: var(--muted); }
+  .wbtn img { border-radius: 4px; background: #fff; }
+  .hint { font-size: 13px; color: var(--muted); }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 4px 4px 10px;
+    border: 1px solid var(--line); border-radius: 999px; background: var(--bg); }
+  .chip .addr { font-size: 12px; padding: 1px 6px; }
+  .chip .x { border: 0; background: transparent; padding: 0 8px; font-size: 16px; line-height: 1; color: var(--muted); }
+  .manual input.label { flex: 0 1 220px; font-family: inherit; }
+  .manual input { flex: 1 1 320px; font: 14px var(--mono); padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .card .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .card .v { font-size: 24px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .card .s { font-size: 13px; color: var(--muted); }
+  .chains { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; }
+  .chain { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13px; }
+  .chain b { display: block; font-size: 14px; }
+  .chain.ok { border-color: color-mix(in srgb, var(--ok-ink) 35%, var(--line)); }
+  .chain.err { border-color: color-mix(in srgb, var(--err-ink) 50%, var(--line)); background: var(--err-bg); }
+  .tablewrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 10px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  td.num, th.num { text-align: right; white-space: nowrap; }
+  tr.zero td { color: var(--muted); }
+  .asset { font-weight: 600; }
+  .asset a { color: inherit; text-decoration: none; border-bottom: 1px dotted var(--muted); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .pill.listed { background: var(--ok-bg); color: var(--ok-ink); }
+  .pill.unknown { background: var(--warn-bg); color: var(--warn-ink); }
+  .pill.absent { background: var(--no-bg); color: var(--no-ink); }
+  .pill.err { background: var(--err-bg); color: var(--err-ink); }
+  .zhnote { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .code { font-family: var(--mono); font-size: 12px; }
+  .notice { font-size: 13px; padding: 8px 12px; border-radius: 8px; background: var(--warn-bg); color: var(--warn-ink); margin-bottom: 12px; }
+  .notice.err { background: var(--err-bg); color: var(--err-ink); }
+  .log { font: 12px/1.6 var(--mono); max-height: 160px; overflow: auto; margin: 8px 0 0; padding: 0; list-style: none; }
+  .guard { display: inline-block; font-size: 13px; color: var(--ok-ink); background: var(--ok-bg);
+    padding: 4px 10px; border-radius: 10px; }
+  footer { font-size: 12px; color: var(--muted); margin-top: 24px; }
+  footer a { color: var(--muted); }
+  .hidden { display: none !important; }
+  /* loading steps */
+  #loading summary { display: flex; align-items: center; gap: 10px; list-style: none; cursor: pointer; }
+  #loading summary::-webkit-details-marker { display: none; }
+  .spin { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent);
+    animation: spin .8s linear infinite; flex: none; }
+  .spin.done { animation: none; border-color: var(--ok-ink); background: var(--ok-bg); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .steps { margin: 12px 0 0; padding: 0; list-style: none; font-size: 14px; }
+  .steps li { display: flex; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); }
+  .steps li:first-child { border-top: 0; }
+  .steps .st { flex: none; width: 18px; text-align: center; }
+  .steps .st.pending::before { content: ''; display: inline-block; width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid var(--line); border-top-color: var(--accent); animation: spin .8s linear infinite; vertical-align: -1px; }
+  .steps .st.ok::before { content: '✓'; color: var(--ok-ink); font-weight: 700; }
+  .steps .st.err::before { content: '!'; color: var(--err-ink); font-weight: 700; }
+  .steps .t { flex: 1; }
+  .steps .t small { display: block; color: var(--muted); font-size: 12px; }
+  .steps .ms { color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  /* brokerage phone preview */
+  .modal { position: fixed; inset: 0; background: rgba(10,12,16,.55); display: flex; align-items: center; justify-content: center;
+    padding: 16px; z-index: 10; }
+  .phone { position: relative; width: 390px; max-width: 100%; height: min(800px, calc(100vh - 32px)); background: #0b0c0f;
+    border-radius: 44px; padding: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.45); }
+  .ph-close { position: absolute; top: -6px; right: -6px; width: 34px; height: 34px; border-radius: 50%; padding: 0;
+    font-size: 20px; line-height: 1; z-index: 2; }
+  .screen { --p-bg: #ffffff; --p-ink: #111418; --p-muted: #6b7280; --p-line: #eceef1; --p-soft: #f4f5f7; --p-acc: #0a7d4f;
+    background: var(--p-bg); color: var(--p-ink); border-radius: 34px; height: 100%; overflow: auto; display: flex; flex-direction: column; }
+  @media (prefers-color-scheme: dark) {
+    .screen { --p-bg: #121418; --p-ink: #eef0f3; --p-muted: #9aa1ab; --p-line: #23272e; --p-soft: #1b1e24; --p-acc: #3ccf8e; }
+  }
+  .ph-status { display: flex; justify-content: space-between; padding: 14px 26px 6px; font-size: 13px; font-weight: 600; }
+  .ph-body { padding: 8px 20px 20px; flex: 1; }
+  .ph-brand { font-size: 12px; color: var(--p-muted); letter-spacing: .04em; text-transform: uppercase; }
+  .ph-body h2 { font-size: 26px; margin: 4px 0 6px; letter-spacing: -.01em; }
+  .ph-body p { margin: 0 0 14px; color: var(--p-muted); font-size: 14px; }
+  .ph-total { background: var(--p-soft); border-radius: 16px; padding: 14px 16px; margin-bottom: 14px; }
+  .ph-total span { font-size: 13px; color: var(--p-muted); }
+  .ph-total b { display: block; font-size: 30px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+  .ph-row { display: flex; align-items: center; gap: 12px; padding: 12px 2px; border-bottom: 1px solid var(--p-line); cursor: pointer; }
+  .ph-row input { width: 20px; height: 20px; accent-color: var(--p-acc); flex: none; margin: 0; }
+  .ph-coin { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 14px;
+    background: var(--p-soft); flex: none; }
+  .ph-main { flex: 1; min-width: 0; }
+  .ph-main b, .ph-amt b { display: block; font-size: 15px; }
+  .ph-main small, .ph-amt small { display: block; font-size: 12px; color: var(--p-muted); }
+  .ph-amt { text-align: right; font-variant-numeric: tabular-nums; }
+  .ph-tag { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase;
+    padding: 1px 6px; border-radius: 999px; background: #fdf1dc; color: #8a5a00; margin-left: 4px; vertical-align: 1px; }
+  .ph-foot { padding: 12px 20px 22px; border-top: 1px solid var(--p-line); background: var(--p-bg); position: sticky; bottom: 0; }
+  .ph-cta { width: 100%; border: 0; border-radius: 14px; padding: 15px; font-weight: 700; font-size: 16px;
+    background: var(--p-acc); color: #fff; }
+  .ph-cta:disabled { opacity: .45; }
+  .ph-note { font-size: 12px; color: var(--p-muted); text-align: center; margin: 10px 0 0; }
+  .ph-back { border: 0; background: none; color: var(--p-acc); padding: 0; font-weight: 600; margin-bottom: 6px; }
+  .ph-card { border: 1px solid var(--p-line); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; font-size: 14px; }
+  .ph-card b { font-size: 15px; }
+  .ph-card .ln { color: var(--p-muted); font-size: 13px; margin-top: 3px; }
+  .ph-card .warn { color: #a15c00; font-size: 13px; margin-top: 4px; }
+  .ph-flow { margin: 14px 0 0; padding-left: 20px; font-size: 13px; color: var(--p-muted); }
+  .ph-flow li { margin: 3px 0; }
+  .how { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line); }
+  .how h2 { font-size: 22px; margin: 0 0 6px; letter-spacing: -.01em; }
+  .how h3 { font-size: 16px; margin: 0 0 4px; }
+  .how .panel > p { margin: 0 0 12px; color: var(--muted); }
+  .sd-wrap { overflow-x: auto; }
+  .sd { display: block; width: 100%; min-width: 640px; height: auto; --wlt: #7f77dd; --rd: #1d9e75; }
+  .sd text { fill: var(--ink); font-size: 12px; font-family: inherit; }
+  .sd .t { font-size: 13px; font-weight: 600; text-anchor: middle; }
+  .sd .s { fill: var(--muted); text-anchor: middle; font-size: 11px; }
+  .sd .l { font-family: var(--mono); font-size: 11.5px; }
+  .sd .lg { fill: var(--muted); }
+  .sd rect { fill: var(--bg); stroke: var(--line); }
+  .sd rect.w { stroke: var(--wlt); } .sd rect.r { stroke: var(--rd); }
+  .sd line { stroke: var(--muted); stroke-width: 1.5; }
+  .sd line.w { stroke: var(--wlt); } .sd line.r { stroke: var(--rd); } .sd line.d { stroke-dasharray: 4 3; }
+  .talk { list-style: none; margin: 0; padding: 0; }
+  .talk li { padding: 12px 0; border-top: 1px solid var(--line); }
+  .talk li:first-child { border-top: 0; }
+  .talk .say { font-weight: 600; margin: 0; }
+  .talk .what { color: var(--muted); margin: 2px 0 0; font-size: 14px; }
+  .talk .api { font: 12px/1.6 var(--mono); margin: 4px 0 0; overflow-wrap: anywhere; }
+  .keyline { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; margin: 12px 0 0; font-weight: 600; }
+  .qa { margin: 0; } .qa dt { font-weight: 600; margin-top: 12px; } .qa dt:first-child { margin-top: 0; }
+  .qa dd { margin: 2px 0 0; color: var(--muted); }
+  @media (max-width: 640px) { h1 { font-size: 22px; } .card .v { font-size: 20px; } }
+</style>
+</head>
+<body>
+<main>
+  <p class="eyebrow">Portfolio Move · prototype · step 1: see what your wallet holds</p>
+  <h1>Balance checker</h1>
+  <p class="lede">
+    Connect MetaMask and see what your wallet holds on Bitcoin, Solana and six EVM chains, read live from public blockchain nodes.
+    Then open the brokerage-app view to pick what you’d move.
+    <strong>This page only reads. It never asks the wallet to sign, approve or send anything.</strong>
+  </p>
+
+  <section class="panel">
+    <div class="row" style="justify-content:space-between">
+      <strong>Wallets</strong>
+      <span class="guard" title="Every call to any wallet goes through an allowlist. Anything else is blocked before it reaches the wallet.">
+        🔒 Read-only: wallet calls limited to account access (<span class="code">eth_requestAccounts</span>, <span class="code">eth_accounts</span>, <span class="code">standard:connect</span>, <span class="code">bitcoin:connect</span>)
+      </span>
+    </div>
+    <div id="walletButtons" class="row" style="margin-top:10px"></div>
+    <div id="sources" class="row" style="margin-top:12px"></div>
+    <details style="margin-top:12px">
+      <summary>Add a wallet by address instead: EVM, Bitcoin or Solana (read-only)</summary>
+      <form id="manualForm" class="manual">
+        <input id="manualAddr" placeholder="0x…, bc1… or a Solana address" autocomplete="off" spellcheck="false">
+        <input id="manualLabel" class="label" placeholder="Label, e.g. Hardware wallet" autocomplete="off" maxlength="40">
+        <button type="submit">Add address</button>
+      </form>
+    </details>
+    <div id="walletErr" class="notice err hidden" style="margin:12px 0 0"></div>
+  </section>
+
+  <section id="loading" class="panel hidden">
+    <details id="loadDetails" open>
+      <summary><span id="loadSpin" class="spin"></span><strong id="loadTitle">Loading your wallet…</strong></summary>
+      <ol class="steps" id="loadSteps"></ol>
+    </details>
+  </section>
+
+  <section id="results" class="hidden">
+    <div class="row" style="justify-content:space-between;margin-bottom:12px">
+      <strong>What your wallet holds</strong>
+      <button id="openApp" class="primary">📱 Open in brokerage app</button>
+    </div>
+    <div class="majors" id="majors"></div>
+    <div class="cards">
+      <div class="card"><div class="k">Total value</div><div class="v" id="cTotal">—</div><div class="s" id="cTotalSub"></div></div>
+      <div class="card"><div class="k">Holdings found</div><div class="v" id="cHoldings">—</div><div class="s" id="cHoldingsSub"></div></div>
+      <div class="card"><div class="k">Chains read</div><div class="v" id="cChains">—</div><div class="s" id="cChainsSub"></div></div>
+    </div>
+
+    <section class="panel">
+      <div class="row" style="justify-content:space-between;margin-bottom:10px">
+        <strong>Chains</strong>
+        <span class="muted small" id="scanMeta"></span>
+      </div>
+      <div class="chains" id="chainStrip"></div>
+    </section>
+
+    <section class="panel">
+      <div id="priceNotice" class="notice hidden"></div>
+      <div class="row" style="justify-content:space-between;margin-bottom:6px">
+        <strong>Holdings</strong>
+        <div class="row">
+          <label class="small muted"><input type="checkbox" id="showZero"> Show zero balances (everything checked)</label>
+          <button id="rescan" class="small">Rescan</button>
+        </div>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th class="col-src hidden">Wallet</th><th>Asset</th><th>Chain</th><th class="num">Amount</th><th class="num">USD value</th>
+          </tr></thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
+      <strong>What this page sent</strong>
+      <ul class="log" id="log"></ul>
+    </section>
+  </section>
+
+  <section class="how" id="howItWorks">
+    <h2>How it works</h2>
+    <p class="muted">The system design and the talk track for this demo. ✅ = checked in a primary source (MetaMask docs, zerohash docs, or seen live in this demo). [verify] = not confirmed.</p>
+
+    <section class="panel">
+      <h3>System design: what’s built</h3>
+      <p>Everything runs in the browser. There is no backend, and nothing is stored.</p>
+      <div class="sd-wrap"><svg class="sd" viewBox="0 0 680 534" role="img"><title>What happens when you click Connect MetaMask</title><desc>Nine steps between you, this page, the MetaMask extension, public blockchain nodes and CoinGecko. MetaMask returns only public addresses. Balances come from public nodes and prices from CoinGecko.</desc><defs><marker id="sdA" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--muted)"/></marker><marker id="sdW" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="stroke:#7f77dd"/></marker><marker id="sdR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="stroke:#1d9e75"/></marker></defs><rect x="30" y="20" width="105" height="56" rx="8"/><text class="t" x="82" y="43">You</text><text class="s" x="82" y="62">Chrome</text><rect x="155" y="20" width="105" height="56" rx="8"/><text class="t" x="207" y="43">This page</text><text class="s" x="207" y="62">static, no server</text><rect class="w" x="280" y="20" width="105" height="56" rx="8"/><text class="t" x="332" y="43">MetaMask</text><text class="s" x="332" y="62">extension</text><rect class="r" x="405" y="20" width="105" height="56" rx="8"/><text class="t" x="457" y="43">Public nodes</text><text class="s" x="457" y="62">8 blockchains</text><rect class="r" x="530" y="20" width="105" height="56" rx="8"/><text class="t" x="582" y="43">CoinGecko</text><text class="s" x="582" y="62">prices</text><text class="l" x="90" y="105">1 · Connect</text><line x1="86" y1="114" x2="203" y2="114" marker-end="url(#sdA)"/><text class="l" x="215" y="151">2 · eth_requestAccounts, standard:connect, bitcoin:connect</text><line class="w" x1="211" y1="160" x2="328" y2="160" marker-end="url(#sdW)"/><text class="l" x="90" y="197">3 · popup: unlock, approve</text><line class="w d" x1="328" y1="206" x2="86" y2="206" marker-end="url(#sdW)"/><text class="l" x="215" y="243">4 · 3 public addresses</text><line class="w" x1="328" y1="252" x2="211" y2="252" marker-end="url(#sdW)"/><text class="l" x="215" y="289">5 · eth_getBalance, balanceOf, getAccountInfo, /address</text><line class="r" x1="211" y1="298" x2="453" y2="298" marker-end="url(#sdR)"/><text class="l" x="215" y="335">6 · raw balances + block number</text><line class="r" x1="453" y1="344" x2="211" y2="344" marker-end="url(#sdR)"/><text class="l" x="215" y="381">7 · /simple/price (coin names only)</text><line class="r" x1="211" y1="390" x2="578" y2="390" marker-end="url(#sdR)"/><text class="l" x="215" y="427">8 · USD prices</text><line class="r" x1="578" y1="436" x2="211" y2="436" marker-end="url(#sdR)"/><text class="l" x="90" y="473">9 · tiles, table, phone</text><line x1="203" y1="482" x2="86" y2="482" marker-end="url(#sdA)"/><line class="w" x1="40" y1="516" x2="70" y2="516"/><text class="lg" x="78" y="520">Wallet: account access only</text><line class="r" x1="300" y1="516" x2="330" y2="516"/><text class="lg" x="338" y="520">Public reads: no wallet involved</text></svg></div>
+    </section>
+    <section class="panel">
+      <h3>System design: what production would add (not built)</h3>
+      <p>Picks up where the prototype stops, at Review.</p>
+      <div class="sd-wrap"><svg class="sd" viewBox="0 0 680 534" role="img"><title>What production would add after Review</title><desc>Nine steps between you, the brokerage app, zerohash, MetaMask and the blockchains. Deposit addresses come from zerohash, the wallet signs one pre-filled bundle per chain, and zerohash reports the result by webhook.</desc><rect x="30" y="20" width="105" height="56" rx="8"/><text class="t" x="82" y="43">You</text><text class="s" x="82" y="62">phone</text><rect x="155" y="20" width="105" height="56" rx="8"/><text class="t" x="207" y="43">Brokerage app</text><text class="s" x="207" y="62">+ its backend</text><rect class="r" x="280" y="20" width="105" height="56" rx="8"/><text class="t" x="332" y="43">zerohash</text><text class="s" x="332" y="62">deposits</text><rect class="w" x="405" y="20" width="105" height="56" rx="8"/><text class="t" x="457" y="43">MetaMask</text><text class="s" x="457" y="62">wallet</text><rect class="r" x="530" y="20" width="105" height="56" rx="8"/><text class="t" x="582" y="43">Blockchains</text><text class="s" x="582" y="62">per chain</text><text class="l" x="90" y="105">1 · Review</text><line x1="86" y1="114" x2="203" y2="114" marker-end="url(#sdA)"/><text class="l" x="215" y="151">2 · POST /deposits/digital_asset_addresses</text><line class="r" x1="211" y1="160" x2="328" y2="160" marker-end="url(#sdR)"/><text class="l" x="215" y="197">3 · deposit addresses</text><line class="r" x1="328" y1="206" x2="211" y2="206" marker-end="url(#sdR)"/><text class="l" x="215" y="243">4 · wallet_sendCalls, pre-filled, per EVM chain</text><line class="w" x1="211" y1="252" x2="453" y2="252" marker-end="url(#sdW)"/><text class="l" x="90" y="289">5 · approve once per chain</text><line class="w d" x1="453" y1="298" x2="86" y2="298" marker-end="url(#sdW)"/><text class="l" x="465" y="335">6 · sign, broadcast</text><line class="w" x1="461" y1="344" x2="578" y2="344" marker-end="url(#sdW)"/><text class="l" x="340" y="381">7 · 1 confirmation, credit, compliance</text><line class="r" x1="578" y1="390" x2="336" y2="390" marker-end="url(#sdR)"/><text class="l" x="215" y="427">8 · webhook deposit.status_changed</text><line class="r" x1="328" y1="436" x2="211" y2="436" marker-end="url(#sdR)"/><text class="l" x="90" y="473">9 · balance shows completed</text><line x1="203" y1="482" x2="86" y2="482" marker-end="url(#sdA)"/><line class="w" x1="40" y1="516" x2="70" y2="516"/><text class="lg" x="78" y="520">Needs your approval in the wallet</text><line class="r" x1="300" y1="516" x2="330" y2="516"/><text class="lg" x="338" y="520">Network and zerohash, no wallet prompt</text></svg></div>
+    </section>
+
+    <section class="panel">
+      <h3>Talk track</h3>
+      <p class="keyline" style="margin-top:8px;color:var(--ink)">“I connect my own self-custody wallet. The page learns my public addresses, reads every balance straight from the blockchains, and lays them out the way a brokerage app could, ready to move.”</p>
+    </section>
+    <section class="panel">
+      <h3>1. Connect: MetaMask gives us addresses, nothing else</h3>
+      <ol class="talk"><li><p class="say">“When the page loads, it asks the browser which wallets are installed.”</p><p class="what">MetaMask announces itself twice: as an Ethereum-style wallet, and as a Solana and Bitcoin wallet.</p><p class="api">EIP-6963 (EVM) · Wallet Standard (Solana, Bitcoin) ✅</p></li><li><p class="say">“I click Connect MetaMask.”</p><p class="what">The page asks MetaMask for account addresses only. First time on a site, MetaMask asks me to unlock and approve.</p><p class="api">eth_requestAccounts · standard:connect · bitcoin:connect ✅</p></li><li><p class="say">“MetaMask hands back three public addresses: one Ethereum-style, one Solana, one Bitcoin.”</p><p class="what">That’s all it returns. No keys, no balances, no permission to move anything.</p></li></ol>
+      <p class="what" style="color:var(--muted);margin-top:8px">If there’s no popup, say: “MetaMask remembers I approved this site, so it shares the addresses without asking again. Sending would still need my approval.” (Seen live: an approved site gets addresses even while MetaMask is locked ✅ observed; not documented [verify].)</p>
+    </section>
+    <section class="panel">
+      <h3>2. Read the chains: public data, no wallet involved</h3>
+      <ol class="talk"><li><p class="say">“Now the page asks each blockchain: what does this address hold?”</p><p class="what">One Ethereum-style address is checked on 6 chains: Ethereum, Base, Arbitrum, OP, Polygon, Avalanche. Token contract addresses come from the issuers, such as Circle for USDC ✅.</p><p class="api">JSON-RPC eth_getBalance (ETH, POL, AVAX) · eth_call → balanceOf(address) on each token contract (USDC, USDT, WETH, WBTC…)</p></li><li><p class="what">Solana address.</p><p class="api">getBalance (SOL) · getAccountInfo on the wallet’s USDC and USDT token accounts ✅</p></li><li><p class="what">Bitcoin address.</p><p class="api">mempool.space GET /address/{address}, Blockstream as fallback ✅</p></li><li><p class="say">“Prices come from CoinGecko. Only coin names are sent, never my address.”</p><p class="api">CoinGecko GET /simple/price ✅</p></li><li><p class="say">“Eight chains in under a second. Each line shows the block number it read, so this is live, not cached.”</p><p class="what">Tiles for BTC, ETH, SOL and USDC, the full table, and the step list.</p></li></ol>
+      <p class="keyline">“Anyone can read these balances from an address; any block explorer shows the same. The wallet’s only job here was to tell us which addresses are mine.”</p>
+      <p class="what" style="color:var(--muted);margin-top:8px">Fixed vs live: the list of chains, public nodes and token contracts is a config file. The addresses, balances, block numbers and prices are fetched live on every click.</p>
+    </section>
+    <section class="panel">
+      <h3>3. The brokerage view</h3>
+      <ol class="talk"><li><p class="say">“Here’s how a brokerage app could show this.” (📱 Open in brokerage app)</p><p class="what">Every holding found, with checkbox, amount and USD value, already filled in from the read above. Wrapped tokens (WETH, WBTC) are shown separately.</p></li><li><p class="say">“I select everything and tap Review.”</p><p class="what">One transfer per asset: from my address, to a deposit address the brokerage gives me, and which coin pays the network fee. It warns if a chain has no coin for the fee.</p></li><li><p class="say">“The prototype stops here, on purpose. It never asks the wallet to send.”</p><p class="what">“Approve in MetaMask” is disabled.</p></li></ol>
+    </section>
+    <section class="panel">
+      <h3>4. What would happen next in production (say it, it isn’t built)</h3>
+      <ol class="talk"><li><p class="say">The brokerage gets my deposit addresses from zerohash.</p><p class="what">One per customer per asset; on EVM chains, one forwarding address per network that takes the native coin and tokens alike ✅.</p><p class="api">POST /deposits/digital_asset_addresses ✅</p></li><li><p class="say">The app asks MetaMask to send, pre-filled with destination, coin and amount. I can only confirm or reject.</p><p class="what">EVM: one bundle per chain, one confirmation; it may first ask to upgrade to a MetaMask smart account ✅. Solana: one transaction can carry several transfers ✅. Bitcoin: one send from the wallet [verify the exact MetaMask method].</p><p class="api">wallet_sendCalls (EIP-5792)</p></li><li><p class="say">I approve once per chain.</p><p class="what">MetaMask signs with my key, which never leaves MetaMask, and broadcasts.</p></li><li><p class="say">zerohash credits after 1 confirmation for BTC, ETH and SOL ✅.</p><p class="what">Typical times: BTC about 10 min, ETH 12–30 s, SOL seconds.</p></li><li><p class="say">Then compliance.</p><p class="what">Screening, and for self-custody deposits the Travel Rule needs the sending wallet owner’s information; unverified deposits are held ✅.</p></li><li><p class="say">Status comes back by webhook.</p><p class="api">deposit.status_changed → completed ✅</p></li></ol>
+      <p class="keyline">“Today, an AUTH deposit can’t be pre-filled (no setting fixes asset, network or amount ✅) and there’s no batch or multi-asset deposit ✅. With what we just read, the brokerage could pre-fill every transfer and cut it to one approval per chain, not one per asset.”</p>
+    </section>
+    <section class="panel">
+      <h3>Likely questions</h3>
+      <dl class="qa">
+        <dt>“Can you move my money with this?”</dt><dd>No. Connecting only shares public addresses. Every send needs the owner’s approval in MetaMask, and this page can’t even ask for one.</dd>
+        <dt>“Is this real data?”</dt><dd>Yes. Live calls to public nodes; the block numbers prove it. Nothing is stored.</dd>
+        <dt>“Why not one approval for everything?”</dt><dd>Each chain is a separate network, so the floor is one approval per chain. No provider found delivers several assets as-is in one approval; Mesh SmartFunding combines sources but converts them into one asset ✅.</dd>
+        <dt>“What’s not covered?”</dt><dd>Tokens outside the list, NFTs, DeFi positions; Bitcoin is read for the one shared address only.</dd>
+      </dl>
+    </section>
+  </section>
+
+  <footer>
+    Covers native coins plus 21 tokens on Ethereum, Base, Arbitrum, OP Mainnet, Polygon and Avalanche; SOL, USDC and USDT on Solana; and BTC.
+    It doesn’t cover other tokens, NFTs or DeFi positions. Bitcoin is read per shared address, so funds on other addresses of the same wallet may be missed.
+    Prices from CoinGecko. A personal prototype.
+  </footer>
+</main>
+
+<div id="appModal" class="modal hidden" role="dialog" aria-modal="true" aria-label="Brokerage app preview">
+  <div class="phone">
+    <button id="closeApp" class="ph-close" title="Close (Esc)">×</button>
+    <div class="screen" id="phoneScreen"></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="solana.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
